@@ -1,0 +1,23 @@
+GCP-Costing-AI/
+├── docker-compose.yml
+├── README.md
+├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── main.py
+│   ├── billing.py          # Cloud Billing API integration
+│   ├── monitoring.py       # Cloud Monitoring metrics queries
+│   └── gke.py             # GKE cluster operations
+└── frontend/
+    ├── Dockerfile
+    ├── package.json
+    ├── vite.config.js
+    ├── index.html
+    └── src/
+        ├── main.jsx
+        ├── App.jsx
+        └── components/
+            ├── RegionProjectSelector.jsx
+            ├── ClusterList.jsx
+            ├── NodePoolTable.jsx
+            └── NodePodSelector.jsx
