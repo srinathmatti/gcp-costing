@@ -26,7 +26,24 @@ app.add_middleware(
 
 # Initialize services with ADC
 from google.auth import default
-credentials, default_project = default()
+from google.auth.exceptions import DefaultCredentialsError
+try:
+    credentials, default_project = default()
+    print(f"✅ ADC loaded successfully. Project: {default_project}")
+except DefaultCredentialsError as e:
+    print(f"⚠️ WARNING: {e}")
+    print("💡 Troubleshooting:")
+    print("   1. Run: gcloud auth application-default login")
+    print("   2. Ensure ~/.config/gcloud is mounted in docker-compose.yml")
+    print("   3. Check file permissions: chmod 644 ~/.config/gcloud/application_default_credentials.json")
+    # Fallback: use anonymous credentials for development (read-only APIs may still work)
+    from google.auth.credentials import AnonymousCredentials
+    credentials = AnonymousCredentials()
+    default_project = os.getenv("GOOGLE_CLOUD_PROJECT", "dev-project")
+    print(f"🔄 Using anonymous credentials. Project: {default_project}")
+except Exception as e:
+    print(f"❌ Unexpected auth error: {e}")
+    raise
 
 billing_service = BillingService(credentials=credentials)
 monitoring_service = MonitoringService(credentials=credentials, project_id=default_project)
@@ -72,6 +89,24 @@ class PodInfo(BaseModel):
     memory_request_gb: Optional[float]
 
 # API Endpoints
+@app.get("/api/debug/auth")
+def debug_auth():
+    """Debug endpoint to verify authentication status."""
+    try:
+        from google.auth import default
+        creds, project = default()
+        return {
+            "status": "success",
+            "project": project,
+            "credential_type": type(creds).__name__,
+            "has_token": creds.token is not None if hasattr(creds, 'token') else "N/A",
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "hint": "Run 'gcloud auth application-default login' on host and restart containers"
+        }
 @app.get("/api/regions")
 def get_regions():
     """Return supported GCP regions."""

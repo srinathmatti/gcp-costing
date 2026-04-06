@@ -1,32 +1,37 @@
 services:
-  # backend:
-  #   build: ./backend
-  #   container_name: gcp-costing-backend
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     # Mount ADC credentials for authentication [[31]][[32]]
-  #     - ~/.config/gcloud:/root/.config/gcloud:ro
-  #     - ~/.kube:/root/.kube:ro
-  #   environment:
-  #     - CLOUDSDK_CONFIG=/root/.config/gcloud
-  #     - KUBECONFIG=/root/.kube/config
-  #     - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8000/api/regions"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  backend:
+    build: ./backend
+    container_name: gcp-costing-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # 🔑 Mount ADC credentials - use absolute path for reliability
+      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
+      - ${HOME}/.kube:/home/appuser/.kube:ro
+    environment:
+      # 🔑 Point Google libraries to the mounted credentials
+      - CLOUDSDK_CONFIG=/home/appuser/.config/gcloud
+      - KUBECONFIG=/home/appuser/.kube/config
+      - GOOGLE_APPLICATION_CREDENTIALS=/home/appuser/.config/gcloud/application_default_credentials.json
+      # 🔑 Fallback: explicitly set project if auto-detection fails
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/regions"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # 🔑 Ensure container runs as appuser with proper UID/GID match
+    user: "${UID:-1000}:${GID:-1000}"
 
   frontend:
     build: ./frontend
     container_name: gcp-costing-frontend
     ports:
       - "5173:5173"
-    # depends_on:
-    #   backend:
-    #     condition: service_healthy
+    depends_on:
+      backend:
+        condition: service_healthy
     environment:
       - VITE_API_BASE=http://localhost:8000/api
     restart: unless-stopped
