@@ -4,6 +4,9 @@ Main FastAPI application for GCP-Costing-AI.
 import os
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field  # ← Ensure BaseModel is imported
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 from google.auth import default
 from google.auth.exceptions import DefaultCredentialsError
 
