@@ -8,6 +8,18 @@ from typing import List, Dict, Optional
 import kubernetes
 import kubernetes.config
 
+def _get_status_name(status_value):
+    """Safely convert GKE cluster status enum to string name."""
+    if isinstance(status_value, str):
+        return status_value
+    if hasattr(status_value, 'name'):
+        return status_value.name
+    try:
+        from google.cloud.container_v1.types import Cluster
+        return Cluster.Status.Name(status_value)
+    except (AttributeError, TypeError):
+        return str(status_value)
+
 class GKEService:
     def __init__(self, credentials=None):
         self.credentials = credentials or default()[0]
@@ -31,16 +43,20 @@ class GKEService:
                 clusters.append({
                     "name": c.name,
                     "location": c.location,
-                    "status": container_v1.Cluster.Status.Name(c.status),
+                    "status": _get_status_name(c.status),  # ✅ Fixed enum handling
                     "node_pools_count": len(c.node_pools),
                     "total_nodes": total_nodes,
                     "endpoint": c.endpoint,
-                    "create_time": c.create_time,
+                    "create_time": c.create_time.isoformat() if c.create_time else None,
                     "default_machine_type": c.node_pools[0].config.machine_type if c.node_pools else "unknown"
                 })
             return clusters
         except exceptions.GoogleAPIError as e:
             print(f"⚠️ Error listing clusters: {e}")
+            # Return empty list instead of crashing
+            return []
+        except Exception as e:
+            print(f"⚠️ Unexpected error: {e}")
             return []
 
     def get_nodepools(self, cluster_name: str, project: str, region: str) -> List[Dict]:
@@ -76,6 +92,9 @@ class GKEService:
         except exceptions.GoogleAPIError as e:
             print(f"⚠️ Error getting nodepools: {e}")
             return []
+        except Exception as e:
+            print(f"⚠️ Unexpected error: {e}")
+            return []
 
     def get_nodepool_node_count(self, cluster_name: str, nodepool_name: str, 
                                region: str, project: str = None) -> int:
@@ -89,7 +108,6 @@ class GKEService:
             
             for np in cluster.node_pools:
                 if np.name == nodepool_name:
-                    # Prefer actual instance count over initial_node_count
                     if np.instance_group_urls:
                         return len(np.instance_group_urls)
                     return np.initial_node_count or 0
@@ -102,16 +120,11 @@ class GKEService:
         if not project:
             project = default()[1]
         
-        # Use gcloud to get credentials
         import subprocess
-        import os
-        
         cmd = [
             "gcloud", "container", "clusters", "get-credentials",
             cluster_name, "--region", region, "--project", project
         ]
         subprocess.run(cmd, capture_output=True, check=True)
-        
-        # Load the config
         kubernetes.config.load_kube_config()
         return kubernetes.client.CoreV1Api()
