@@ -1,21 +1,21 @@
 """
 Main FastAPI application for GCP-Costing-AI.
-Integrates Billing, Monitoring, and GKE services.
 """
 import os
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-from datetime import datetime
+from google.auth import default
+from google.auth.exceptions import DefaultCredentialsError
 
+# ✅ Absolute imports (not relative)
 from billing import BillingService
 from monitoring import MonitoringService
 from gke import GKEService
 
+# ✅ Create FastAPI app instance at module level
 app = FastAPI(title="GCP Costing AI", version="1.0.0")
 
-# CORS for local development
+# ✅ Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -24,27 +24,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services with ADC
-from google.auth import default
-from google.auth.exceptions import DefaultCredentialsError
+# ✅ Load credentials (with graceful fallback)
 try:
     credentials, default_project = default()
     print(f"✅ ADC loaded successfully. Project: {default_project}")
-except DefaultCredentialsError as e:
-    print(f"⚠️ WARNING: {e}")
-    print("💡 Troubleshooting:")
-    print("   1. Run: gcloud auth application-default login")
-    print("   2. Ensure ~/.config/gcloud is mounted in docker-compose.yml")
-    print("   3. Check file permissions: chmod 644 ~/.config/gcloud/application_default_credentials.json")
-    # Fallback: use anonymous credentials for development (read-only APIs may still work)
+except DefaultCredentialsError:
     from google.auth.credentials import AnonymousCredentials
     credentials = AnonymousCredentials()
     default_project = os.getenv("GOOGLE_CLOUD_PROJECT", "dev-project")
-    print(f"🔄 Using anonymous credentials. Project: {default_project}")
-except Exception as e:
-    print(f"❌ Unexpected auth error: {e}")
-    raise
+    print(f"⚠️ Using anonymous credentials. Project: {default_project}")
 
+# ✅ Initialize services
 billing_service = BillingService(credentials=credentials)
 monitoring_service = MonitoringService(credentials=credentials, project_id=default_project)
 gke_service = GKEService(credentials=credentials)
@@ -109,8 +99,7 @@ def debug_auth():
         }
 @app.get("/api/regions")
 def get_regions():
-    """Return supported GCP regions."""
-    return ["us-central1", "us-east1", "us-west1", "europe-west1", "asia-east1", "asia-southeast1"]
+    return ["us-central1", "us-east1", "us-west1", "europe-west1", "asia-east1"]
 
 @app.get("/api/projects")
 def get_projects():
@@ -315,6 +304,6 @@ def _parse_memory(mem_str: Optional[str]) -> Optional[float]:
     except ValueError:
         return None
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
