@@ -3,17 +3,20 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies including modern gpg tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Cloud SDK using modern GPG method
+# Install Google Cloud SDK
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
     | tee /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+    && curl -sSLk https://packages.cloud.google.com/apt/doc/apt-key.gpg \
     | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    # Create a config file to ignore SSL for the Google domain
+    && echo "Acquire::https::packages.cloud.google.com::Verify-Peer \"false\";" > /etc/apt/apt.conf.d/99-google-sdk \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-cloud-sdk \
     && rm -rf /var/lib/apt/lists/*
