@@ -8,6 +8,16 @@ from typing import List, Dict, Optional
 import kubernetes
 import kubernetes.config
 
+def _format_timestamp(ts):
+    """Convert timestamp to ISO string, handling both datetime and str."""
+    if not ts:
+        return None
+    if isinstance(ts, str):
+        return ts
+    if hasattr(ts, 'isoformat'):
+        return ts.isoformat()
+    return str(ts)
+
 def _get_status_name(status_value):
     """Safely convert GKE cluster status enum to string name."""
     if isinstance(status_value, str):
@@ -33,7 +43,6 @@ class GKEService:
             
             clusters = []
             for c in response.clusters:
-                # Calculate total node count across all node pools
                 total_nodes = sum(
                     (np.initial_node_count or 0) if np.initial_node_count 
                     else len(np.instance_group_urls)
@@ -43,17 +52,16 @@ class GKEService:
                 clusters.append({
                     "name": c.name,
                     "location": c.location,
-                    "status": _get_status_name(c.status),  # ✅ Fixed enum handling
+                    "status": _get_status_name(c.status),
                     "node_pools_count": len(c.node_pools),
                     "total_nodes": total_nodes,
                     "endpoint": c.endpoint,
-                    "create_time": c.create_time.isoformat() if c.create_time else None,
+                    "create_time": _format_timestamp(c.create_time),  # ✅ Fixed
                     "default_machine_type": c.node_pools[0].config.machine_type if c.node_pools else "unknown"
                 })
             return clusters
         except exceptions.GoogleAPIError as e:
             print(f"⚠️ Error listing clusters: {e}")
-            # Return empty list instead of crashing
             return []
         except Exception as e:
             print(f"⚠️ Unexpected error: {e}")
