@@ -1,0 +1,8 @@
+/* Add Tailwind or basic resets */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Or minimal CSS if not using Tailwind */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f9fafb; }

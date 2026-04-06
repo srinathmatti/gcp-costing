@@ -59,3 +59,17 @@ uvicorn main:app --reload
 cd frontend
 npm install
 npm run dev
+
+
+
+# 1. Stop containers
+docker compose down
+
+# 2. Clear build cache (important!)
+docker builder prune -f
+
+# 3. Rebuild and start
+docker compose up --build
+
+# 4. Check logs
+docker compose logs -f backend
